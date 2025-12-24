@@ -1,6 +1,8 @@
 """This code is executed before starting any other code"""
 import sys
+import threading
 
+import keyboard
 import pyautogui
 from dotenv import load_dotenv
 from definitions import DOTENV_PATH, SOURCE_PATH
@@ -12,9 +14,28 @@ sys.path.append(SOURCE_PATH)
 
 print("Env files loaded!")
 
+stop_script = False  # flag to signal main loop to stop
+def monitor_f2():
+    global stop_script
+    keyboard.wait("F2")  # blocks until F2 is pressed
+    stop_script = True
+    print("F2 pressed. Exiting...")
+
+# Start the F2 monitor thread
+threading.Thread(target=monitor_f2, daemon=True).start()
+
+print("Main logic running. Press F2 to exit.")
+
+# Main logic loop runs constantly
+while not stop_script:
+    mpscanner = MarketScanner()
+    mpscanner.startup()
+    mpscanner.retrieve_marketplace_images()
+
+#print("Script exited.")
 #screenshot = pyautogui.screenshot()
 #screenshot.save("screenshot.png")
-mpscanner = MarketScanner()
-#mpscanner.moveAndClick()
+
 #mpscanner.save(1)
-mpscanner.ocrEasyOcr()
+#mpscanner.ocrEasyOcr()
+

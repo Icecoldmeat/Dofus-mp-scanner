@@ -100,7 +100,7 @@ class MarketScanner:
 
         self.image_text = image_text
 
-        locations = self._locate_all('images/kamas_2.png', confidence=0.82)
+        locations = self._locate_all('../images/kamas_2.png', confidence=0.82)
         amount_of_time = random.uniform(0.2, 0.44)
         self.locate_image(amount_of_time, locations)
        # scroll_mouse_wheel = random.randint(5,7)

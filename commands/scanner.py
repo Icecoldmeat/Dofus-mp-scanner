@@ -1,8 +1,7 @@
 """This code is executed before starting any other code"""
 import threading
 import keyboard
-from marketplace import MarketScanner
-import main
+from commands.marketplace import MarketScanner
 
 stop_script = False  # flag to signal main loop to stop
 def monitor_f2():

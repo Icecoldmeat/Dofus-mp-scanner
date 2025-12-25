@@ -32,22 +32,27 @@ class DofusRepository:
         self.collection.insert_many(df.to_dict('records'))
 
 
-
-
-
-
 class DofusItemRepository(DofusRepository):
-    PROJECTION = {
+    PROJECTION_DEFAULT = {
         "_id": 0,  # exclude MongoDB's default _id
         "item_id": "$m_id",
         "name": "$name.en"
     }
 
+    PROJECTION_NUGGETS = {
+        "_id": 0,
+        "item_id": "$m_id",
+        "recyclingNuggets": "$recyclingNuggets"
+    }
+
     def __init__(self):
         super().__init__('item')
 
-    def find_all_items(self):
-        results = self.collection.find({}, self.PROJECTION)
+    def find_all_items(self, projection: dict = None):
+        if projection is None:
+            projection = self.PROJECTION_DEFAULT
+
+        results = self.collection.find({}, projection)
 
         return list(results)
 
@@ -62,6 +67,7 @@ class DofusItemRepository(DofusRepository):
         results = self.collection.find(query, self.PROJECTION)
 
         return list(results)
+
 
 class DofusRecipeRepository(DofusRepository):
 
@@ -80,7 +86,19 @@ class DofusRecipeRepository(DofusRepository):
 
         return list(results)
 
+
 class DofusPricesRepository(DofusRepository):
+    PROJECTION_DEFAULT = {
+        "_id": 0,
+        "name": "$name",
+        "item_id": "$item_id",
+        "price_type": "$price_type",
+        "price": "$price",
+        "creation_date": "$creation_date",
+
+    }
+
+
     def __init__(self):
         super().__init__('price')
         self.collection.create_index(
@@ -91,14 +109,16 @@ class DofusPricesRepository(DofusRepository):
             unique=True,
             name="uniq_file_path_price_type"
         )
-    def find_last_id(self):
-        projection = {
-            "_id": 0,  # exclude MongoDB's default _id
-            "level": 1,
-            "id": "$m_id",
-            "name": "$name.en"
-        }
 
+    def find_last_id(self):
         results = self.collection.find({}).sort({"id": -1}).limit(1)
+
+        return list(results)
+
+    def find_all_items(self, projection: dict = None):
+        if projection is None:
+            projection = self.PROJECTION_DEFAULT
+
+        results = self.collection.find({}, projection)
 
         return list(results)

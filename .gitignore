@@ -2,4 +2,4 @@
 .venv
 .idea
 docker/data
-.env
+/.env

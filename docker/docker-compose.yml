@@ -11,3 +11,21 @@ services:
     volumes:
       - ./data/mongo-data:/data/db
       - ./data/mongo-config:/data/configdb
+  grafana: #admin - admin
+    image: grafana/grafana-enterprise
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./data/grafana-storage:/var/lib/grafana
+  mp-postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER:  ${POSTGRES_USER}
+      POSTGRES_PASSWORD:  ${POSTGRES_PASSWORD}
+    volumes:
+      - ./data/postgres-storage:/var/lib/postgresql
+    ports:
+      - "5332:5432"

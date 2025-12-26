@@ -12,7 +12,7 @@ import pygetwindow
 import random
 from humancursor import SystemCursor
 
-from definitions import ITEMS_PATH
+from definitions import ITEMS_PATH, CACHE_PATH, IMAGE_PATH
 from mouse_mover import NaturalMouseMover
 import pyscreenshot as ImageGrab
 from pyrect import Box
@@ -49,7 +49,7 @@ class MarketScanner:
 
     def retrieve_marketplace_images(self) ->  None:
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start Retrieving")
-        file_path = f"cache/validate.png"
+        file_path = f"{CACHE_PATH}/validate.png"
 
 
         im = ImageGrab.grab(bbox=self.MP_VALIDATE_NEW_ITEMS_REGION)
@@ -63,7 +63,7 @@ class MarketScanner:
 
         self.image_text = image_text
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Checked image")
-        locations = self._locate_all('images/kamas_2.png', confidence=0.82)
+        locations = self._locate_all(f'{IMAGE_PATH}/kamas_2.png', confidence=0.82)
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Located Images")
         self.locate_image(locations)
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - moved to all images and clicked")

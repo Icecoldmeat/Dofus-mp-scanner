@@ -1,6 +1,7 @@
 import pandas as pd
 from sqlalchemy import create_engine
 
+from connect import SqlAlchemyConnector
 from repository.mongodb import DofusPricesRepository, DofusItemRepository
 
 df_prices = DofusPricesRepository().find_all_items()
@@ -26,7 +27,7 @@ df_prices = df_prices.astype({'price_type': 'int'})
 
 joined["creation_date"] = pd.to_datetime(joined["creation_date"])
 
-engine = create_engine('postgresql://dofus:password@localhost:5332/dofus')
+engine = SqlAlchemyConnector().connect('postgresql')
 joined.to_sql('profitable_nuggets_tb', engine)
 
 #select concat(name, ' - ',price_type, ' lot - ', unit_price , ' kamas') as name_price, ("price_type" * "recyclingNuggets" * "nuggetPrice") - "price" as profit from profitable_nuggets_tb where "nuggetPrice" > price_one_nugget order by price_one_nugget asc

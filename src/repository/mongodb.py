@@ -11,7 +11,7 @@ from src.connect import MongoConnector
 class DofusRepository:
 
     def __init__(self, table_name: str):
-        client = MongoConnector(os.environ.get("MONGO_CONNECTION_STRING")).connect()
+        client = MongoConnector().connect()
         self.db = client['dofus']
         self.collection: Collection
         self.table_name = table_name

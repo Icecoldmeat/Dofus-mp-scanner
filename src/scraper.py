@@ -43,7 +43,7 @@ class Scraper:
         date_str = parts_creation_date[2]
         time_str = parts_creation_date[3]
         creation_date = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
-        for key, price in pack_price.items():
+        for key, price in pack_price.items(): #TODO NOT FOR SALE?
             price_model = self.map(creation_date, file, key, name, price)
             item_prices.append(price_model)
 
@@ -57,7 +57,7 @@ class Scraper:
         price_model.name = name.replace('WV', 'W')
         price_model.price_type = str(price_type).replace(',', '')
         price_model.price = price
-        price_model.file_name = file
+        price_model.image_file_path = file
         price_model.creation_date = creation_date
         return price_model
 
@@ -83,6 +83,9 @@ class Scraper:
     def clean_price(self, prices: list) -> dict: #TODO THIS IS ONLY FOR RESOURCES
         product_prices = []
         pack = []
+        if prices is None:
+            return {}
+
         for price in prices:
             if price['value'] in ['Pack','Price']:
                 continue

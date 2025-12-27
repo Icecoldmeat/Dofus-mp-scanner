@@ -14,7 +14,7 @@ class DofusPriceModel(Base):
     name= Column(String(255), nullable=False)
     price_type= Column(String(255), nullable=True)
     price= Column(Integer, nullable=True)
-    file_name= Column(String(255), nullable=True)
+    image_file_path= Column(String(255), nullable=True)
     creation_date = Column(DateTime, nullable=False)
 
 
@@ -28,7 +28,7 @@ class DofusPriceRepository:
 
 
         with Session(self.engine) as session:
-            q = session.query(DofusPriceModel.id).filter_by(file_name=price_model.file_name, price_type=price_model.price_type)
+            q = session.query(DofusPriceModel.id).filter_by(image_file_path=price_model.image_file_path, price_type=price_model.price_type)
             if not session.query(q.exists()).scalar():
                 session.add(price_model)
                 session.commit()

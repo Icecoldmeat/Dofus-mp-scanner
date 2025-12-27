@@ -64,7 +64,7 @@ class DofusItemRepository(DofusRepository):
             ]
         }
 
-        results = self.collection.find(query, self.PROJECTION)
+        results = self.collection.find(query, self.PROJECTION_DEFAULT)
 
         return list(results)
 

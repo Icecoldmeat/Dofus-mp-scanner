@@ -7,7 +7,7 @@ import easyocr
 import re
 
 from definitions import ITEMS_PATH, CACHE_PATH
-from repository.mysql import DofusPriceModel, DofusPriceRepository
+from repository.mysql import DofusPriceModel, ExternalDofusPriceRepository
 
 
 class Scraper:
@@ -149,7 +149,7 @@ class ScraperManager:
     def __init__(self) -> None:
         self.reader = easyocr.Reader(['en'], gpu=True)
         self.scrape = Scraper()
-        self.repo = DofusPriceRepository()
+        self.repo = ExternalDofusPriceRepository()
 
     def get_sales(self, date: Union[None,datetime] = None) -> list:
         if date is None:

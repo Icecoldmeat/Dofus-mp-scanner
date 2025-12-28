@@ -91,17 +91,13 @@ class MarketScanner:
             if random.randint(0, 100) < 2:
                 time.sleep(random.uniform(2, 10))
 
-            if random.randint(0, 100) < 30:
-               # self.cursor.move_to([x, y], duration=amount_of_time, steady=True)
-                self.cursor.move_to([x, y])
-            else:
-                print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - start actual movement")
-                current_x, current_y = pyautogui.position()
-                #self.mouse_mover.move_mouse_natural(current_x,current_y,x,y)
-                natural_mover = NaturalMouseMover(speed=2)
-                natural_mover.move(current_x,current_y,x,y)
-                print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - moved to spot")
-                #mouse.move(x, y, duration=amount_of_time)
+            print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - start actual movement")
+            current_x, current_y = pyautogui.position()
+            #self.mouse_mover.move_mouse_natural(current_x,current_y,x,y)
+            natural_mover = NaturalMouseMover(speed=2)
+            natural_mover.move(current_x,current_y,x,y)
+            print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - moved to spot")
+            #mouse.move(x, y, duration=amount_of_time)
 
             mouse.click()
             print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - clicked spot")

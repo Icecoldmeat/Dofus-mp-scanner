@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class MarketPlaceScannerBoxes:
-    mp_item_box_width: int
+    mp_item_box_width: int # from kamas icon
     mp_item_box_height_from_middle: int
     mp_items_kamas_region: tuple[int, int, int, int]
     mp_item_sale_box_region: tuple[int, int, int, int]
@@ -28,7 +28,7 @@ average_text_box = MarketPlaceScannerBoxes(
 )
 
 large_text_box = MarketPlaceScannerBoxes(
-    mp_item_box_width=464,
+    mp_item_box_width=464-25,
     mp_item_box_height_from_middle=20,
     mp_items_kamas_region=(1163, 163, 181, 797),
     mp_item_sale_box_region=(157, 166, 417+157, 358+166),

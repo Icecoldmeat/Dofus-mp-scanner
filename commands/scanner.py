@@ -2,6 +2,7 @@
 import threading
 import keyboard
 from marketplace import MarketScanner
+from marketplace_boxes import large_text_box
 
 stop_script = False  # flag to signal main loop to stop
 def monitor_f2():
@@ -17,7 +18,7 @@ print("Main logic running. Press F2 to exit.")
 
 # Main logic loop runs constantly
 while not stop_script:
-    mpscanner = MarketScanner()
+    mpscanner = MarketScanner(large_text_box)
     mpscanner.startup()
     mpscanner.retrieve_marketplace_images()
 

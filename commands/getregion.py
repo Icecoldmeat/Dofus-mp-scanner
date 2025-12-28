@@ -82,3 +82,5 @@ if __name__ == "__main__":
 
 
 #Selected region: (845, 287, 464, 71) -> item box
+
+

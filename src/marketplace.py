@@ -1,9 +1,6 @@
-import csv
-import math
-from typing import Union, Any
-import glob
 
-from enum import Enum
+from typing import Any
+
 
 import mouse
 import pyautogui
@@ -13,27 +10,22 @@ import random
 from humancursor import SystemCursor
 
 from definitions import ITEMS_PATH, CACHE_PATH, IMAGE_PATH
+from marketplace_boxes import MarketPlaceScannerBoxes
 from mouse_mover import NaturalMouseMover
 import pyscreenshot as ImageGrab
 from pyrect import Box
-from datetime import datetime, timezone
+from datetime import datetime
 import easyocr
 import os
-from PIL import Image
-import re
 
 class MarketScanner:
-    MP_ITEM_BOX_WIDTH = 390
-    MP_ITEM_BOX_HEIGHT_FROM_MIDDLE = 20
-    MP_ITEMS_REGION = (688, 24, 731, 1017)
-    MP_ITEM_SALE_BOX_REGION = (154, 156, 421+154, 348+156)
-    MP_VALIDATE_NEW_ITEMS_REGION = (895, 287, 281+895, 575+287)
 
-    def __init__(self):
+    def __init__(self,  scanner_boxes: MarketPlaceScannerBoxes):
         self.i = 0
         self.cursor = SystemCursor()
         self.reader = easyocr.Reader(['en'])
         self.image_text = None
+        self.scanner_boxes = scanner_boxes
 
         date = datetime.now().strftime("%Y%m%d")
         time = datetime.now().strftime("%H%M%S")
@@ -51,12 +43,17 @@ class MarketScanner:
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start Retrieving")
         file_path = f"{CACHE_PATH}/validate.png"
 
-
-        im = ImageGrab.grab(bbox=self.MP_VALIDATE_NEW_ITEMS_REGION)
-        im.save(file_path)
+        time.sleep(0.3)
+        im = ImageGrab.grab(bbox=self.scanner_boxes.mp_validate_new_items_region)
+        if im:
+            im.save(file_path)
+        else:
+            raise Exception('could not grab image, unknown cause')
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Saved Marketplace image")
 
         image_text = self.reader.readtext(file_path, detail=0)
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - saved {self.image_text}")
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - current {image_text}")
         if self.image_text is not None and self.image_text == image_text:
             print(f"No new auctions found, exiting code")
             exit()
@@ -143,23 +140,23 @@ class MarketScanner:
         x = location.left
         y = location.top
 
-        x_randomized = random.randint(x - self.MP_ITEM_BOX_WIDTH,x)
-        y_randomized = random.randint(y - self.MP_ITEM_BOX_HEIGHT_FROM_MIDDLE, y + self.MP_ITEM_BOX_HEIGHT_FROM_MIDDLE)
+        x_randomized = random.randint(x -  self.scanner_boxes.mp_item_box_width,x)
+        y_randomized = random.randint(y - self.scanner_boxes.mp_item_box_height_from_middle, y + self.scanner_boxes.mp_item_box_height_from_middle)
         if last:
             print('hit the last one!')
-            y_randomized = random.randint(y - self.MP_ITEM_BOX_HEIGHT_FROM_MIDDLE,y )
+            y_randomized = random.randint(y -  self.scanner_boxes.mp_item_box_height_from_middle,y )
 
         if first:
             print('hit the first one!')
             y_randomized = random.randint(y ,
-                                          y + self.MP_ITEM_BOX_HEIGHT_FROM_MIDDLE)
+                                          y +  self.scanner_boxes.mp_item_box_height_from_middle)
 
         return x_randomized, y_randomized
 
     def _locate_all(self,path, confidence=0.9, distance=10):
         distance = pow(distance, 2)
         elements = []
-        for element in pyautogui.locateAllOnScreen(path, confidence=confidence, grayscale=False, region=self.MP_ITEMS_REGION):
+        for element in pyautogui.locateAllOnScreen(path, confidence=confidence, grayscale=False, region=self.scanner_boxes.mp_items_kamas_region):
             if all(map(lambda x: pow(element.left - x.left, 2) + pow(element.top - x.top, 2) > distance, elements)):
                 elements.append(element)
         return elements
@@ -170,7 +167,7 @@ class MarketScanner:
         window.activate()
 
         # part of the screen
-        im = ImageGrab.grab(bbox=self.MP_ITEM_SALE_BOX_REGION)
+        im = ImageGrab.grab(bbox=self.scanner_boxes.mp_item_sale_box_region)
 
         im.save(f'{self.file_output}/{i}.png')
 

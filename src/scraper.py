@@ -13,6 +13,7 @@ from definitions import ITEMS_PATH, CACHE_PATH, ROOT
 from marketplace_boxes import MarketPlaceScannerBoxes
 from repository.mysql import DofusPriceModel, ExternalDofusPriceRepository
 
+
 @dataclass
 class PricePartModel:
     price: int
@@ -55,7 +56,7 @@ class ScraperPriceCleaner:
     def __init__(self, scanner_boxes: MarketPlaceScannerBoxes):
         self.scanner_boxes = scanner_boxes
 
-    def clean_price(self, prices: Union[None,list], file :str) -> list[PricePartModel]: #TODO THIS IS ONLY FOR RESOURCES
+    def clean_price(self, prices: Union[None, list], file: str) -> list[PricePartModel]:  #TODO THIS IS ONLY FOR RESOURCES
         if prices is None:
             return []
 
@@ -137,7 +138,7 @@ class ScraperPriceCleaner:
 
         return pack, packless_items
 
-    def _group_prices_by_y(self, data: list[dict]) ->  list[dict]:
+    def _group_prices_by_y(self, data: list[dict]) -> list[dict]:
         tolerance = 4
 
         # Sort by y so nearby values are processed together
@@ -146,7 +147,7 @@ class ScraperPriceCleaner:
         groups = []
 
         for item in data:
-            if item['value'] in ['Pack','Price','BUY']:
+            if item['value'] in ['Pack', 'Price', 'BUY']:
                 continue
 
             placed = False
@@ -172,7 +173,6 @@ class Scraper:
         self.scanner_boxes = scanner_boxes
         self.price_cleaner = ScraperPriceCleaner(scanner_boxes)
 
-
     def scrape(self, row: list, file: str):
         if len(row) == 0:
             return
@@ -196,7 +196,7 @@ class Scraper:
         pack_price = self.price_cleaner.clean_price(prices, file)
         pack_price.insert(0, average_price)
         item_prices = []
-        file = file[file.find('cache'):].replace('\\','/').replace('//','/')
+        file = file[file.find('cache'):].replace('\\', '/').replace('//', '/')
 
         if file.count('/') != 4:
             raise Exception(f'File has more folders than expected: {file}')
@@ -213,11 +213,14 @@ class Scraper:
 
         return item_prices
 
-
     def map(self, creation_date: datetime, file: str, price_type, name: str, price, auction_number: int) -> DofusPriceModel:
         price_model = DofusPriceModel()
         price_model.name = name.replace('WV', 'W')
-        price_model.price_type = str(price_type).replace(',', '').replace('x', '').replace('X','')
+
+        price_type_cleaned = str(price_type).replace(',', '').replace('x', '').replace('X', '').replace('o', '0').replace('O', '0').strip()
+        if price_type_cleaned == '' or price_type_cleaned is None:
+            price_type_cleaned = 1
+        price_model.price_type = price_type_cleaned
         price_model.price = price
         price_model.auction_number = auction_number
         price_model.image_file_path = file
@@ -237,18 +240,10 @@ class Scraper:
 
         return " ".join(v["value"] for v in sorted_data)
 
-
     def clean_average_price(self, average_price: dict) -> PricePartModel:
         is_number, number = ScraperUtility.find_number_with_comma(average_price['value'])
 
-        return PricePartModel(number,'average')
-
-
-
-
-
-
-
+        return PricePartModel(number, 'average')
 
 
 class ScraperManager:
@@ -258,7 +253,7 @@ class ScraperManager:
         self.scrape = scraper
         self.repo = ExternalDofusPriceRepository()
 
-    def get_sales(self, date: Union[None,datetime] = None, reimport: bool = False) -> list:
+    def get_sales(self, date: Union[None, datetime] = None, reimport: bool = False) -> list:
         if date is None:
             date = datetime.now()
 
@@ -269,7 +264,7 @@ class ScraperManager:
         list_of_files = glob.glob(path, recursive=True)
         count = len(list_of_files)
 
-        i=0
+        i = 0
         for file in list_of_files:
             result = self.reader.readtext(file, detail=1, batch_size=5, blocklist='*#')
             if result is None or len(result) == 0:
@@ -280,12 +275,11 @@ class ScraperManager:
 
             for scraped_result in scraped_results:
                 self.repo.insert(scraped_result)
-           # self.write_to_file(scraped_result)
+            # self.write_to_file(scraped_result)
             i = i + 1
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Inserted {i} of {count} - {file}")
 
-
-    def get_sale(self,file : str):
+    def get_sale(self, file: str):
         path = ROOT + file
         result = self.reader.readtext(path, detail=1, batch_size=5, blocklist='*#')
         converted_result = self.convert(result)
@@ -293,23 +287,21 @@ class ScraperManager:
 
         print(scraped_result)
 
-
-
-  #  def write_to_file(self, products: list):
-  #      path = CACHE_PATH
-  #      with open(f"{path}/products.csv", mode="a", newline="", encoding="utf-8") as file:
-  #          writer = csv.writer(file, delimiter=';')
-#
-  #          # If file is empty, write header first
-  #          if file.tell() == 0:
-  #              writer.writerow(["name", "price", "price_type","image_file_path","creation_date"])
-#
-  #          # Write rows
-  #          try:
-  #              for product in products:
-  #                  writer.writerow([product.name, product.price, product.price_type,product.file_name,product.creation_date])
-  #          except Exception as e:
-  #              print(e)
+    #  def write_to_file(self, products: list):
+    #      path = CACHE_PATH
+    #      with open(f"{path}/products.csv", mode="a", newline="", encoding="utf-8") as file:
+    #          writer = csv.writer(file, delimiter=';')
+    #
+    #          # If file is empty, write header first
+    #          if file.tell() == 0:
+    #              writer.writerow(["name", "price", "price_type","image_file_path","creation_date"])
+    #
+    #          # Write rows
+    #          try:
+    #              for product in products:
+    #                  writer.writerow([product.name, product.price, product.price_type,product.file_name,product.creation_date])
+    #          except Exception as e:
+    #              print(e)
 
     def convert(self, result: list) -> list:
         all_values = []
@@ -322,5 +314,3 @@ class ScraperManager:
             all_values.append(values)
 
         return all_values
-
-

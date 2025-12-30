@@ -8,6 +8,8 @@ from repository.mongodb import DofusRepository
 class DofusDBClient:
     RECIPE_URL = "https://api.dofusdb.fr/recipes"
     ITEM_URL = "https://api.dofusdb.fr/items"
+    EFFECTS_URL = "https://api.dofusdb.fr/effects"
+    CHARACTERISTICS_URL = "https://api.dofusdb.fr/characteristics"
     RECIPE_TOTAL = 4745
     ITEM_TOTAL = 20494
     PAGE_SIZE = 50

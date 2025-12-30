@@ -17,6 +17,18 @@ class DofusRepository:
         self.table_name = table_name
         self.collection = self.db[table_name]
 
+    def find_all_items(self, projection: dict = None) -> pd.DataFrame:
+
+        results = self.collection.find({}, projection)
+
+        return pd.DataFrame(list(results))
+
+    def find_all_items_as_list(self, projection: dict = None) -> list:
+
+        results = self.collection.find({}, projection)
+
+        return list(results)
+
     def add_multiple(self, values: list[dict]) -> None:
         ids_to_check = []
         for value in values:
@@ -45,21 +57,28 @@ class DofusItemRepository(DofusRepository):
         "recyclingNuggets": "$recyclingNuggets"
     }
 
+    PROJECTION_RECIPES = {
+        "_id": 0,
+        "item_id": "$m_id",
+        "item_type": "$type.name.en",
+    }
+
+    PROJECTION_CRUSH = {
+        "_id": 0,
+        "name": "$name.en",
+        "item_id": "$m_id",
+        "item_type": "$type.name.en",
+        "effects": "$effects",
+    }
+
     def __init__(self):
         super().__init__('item')
 
-    def find_all_items(self, projection: dict = None):
-        if projection is None:
-            projection = self.PROJECTION_DEFAULT
-
-        results = self.collection.find({}, projection)
-
-        return list(results)
-
     def find_by_name_part(self, name_part: str):
+        escaped_name_part = name_part.replace('(', '').replace(')', '').strip()
         query = {
             "$and": [
-                {"name.en": {"$regex": f"^{name_part}"}},
+                {"name.en": {"$regex": f"^{escaped_name_part}"}},
                 {"exchangeable": True}
             ]
         }
@@ -70,6 +89,16 @@ class DofusItemRepository(DofusRepository):
 
 
 class DofusRecipeRepository(DofusRepository):
+    PROJECTION_DEFAULT = {
+        "_id": 0,
+        "name": "$resultName.en",
+        "item_id": "$resultId",
+        #    "item_type": "$resultType.name.en",
+        "ingredient_quantities": "$quantities",
+        "ingredients": "$ingredients",
+        "job": "$job.name.en",
+        "job_level": "$resultLevel",
+    }
 
     def __init__(self):
         super().__init__('recipe')
@@ -98,13 +127,12 @@ class DofusPricesRepository(DofusRepository):
 
     }
 
-
     def __init__(self):
         super().__init__('price')
         self.collection.create_index(
             [
                 ("image_file_path", ASCENDING),
-                ("price_type", ASCENDING),
+                ("auction_number", ASCENDING),
             ],
             unique=True,
             name="uniq_file_path_price_type"
@@ -115,10 +143,34 @@ class DofusPricesRepository(DofusRepository):
 
         return list(results)
 
-    def find_all_items(self, projection: dict = None):
-        if projection is None:
-            projection = self.PROJECTION_DEFAULT
 
-        results = self.collection.find({}, projection)
+class DofusEffectsRepository(DofusRepository):
+    PROJECTION_DEFAULT = {
+        "_id": 0,
+        "id": "$id",
+        "density": "$effectPowerRate",
+    }
+
+    def __init__(self):
+        super().__init__('effect')
+
+    def find_last_id(self):
+        results = self.collection.find({}).sort({"id": -1}).limit(1)
+
+        return list(results)
+
+
+class DofusCharacteristicRepository(DofusRepository):
+    PROJECTION_DEFAULT = {
+        "_id": 0,
+        "id": "$id",
+        "characteristic": "$name.en",
+    }
+
+    def __init__(self):
+        super().__init__('characteristic')
+
+    def find_last_id(self):
+        results = self.collection.find({}).sort({"id": -1}).limit(1)
 
         return list(results)

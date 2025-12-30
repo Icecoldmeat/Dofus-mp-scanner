@@ -29,3 +29,20 @@ services:
       - ./data/postgres-storage:/var/lib/postgresql
     ports:
       - "5332:5432"
+#  metabase:
+#    image: metabase/metabase:latest
+#    restart: always
+#    environment:
+#      MB_DB_TYPE: "postgres"
+#      MB_DB_DBNAME: "metabase"
+#      MB_DB_PORT: "5432"
+#      MB_DB_USER: "dofus"
+#      MB_DB_PASS: "password"
+#      MB_DB_HOST: "docker-mp-postgres-1"
+#      MB_PASSWORD_COMPLEXITY: strong
+#      MB_PASSWORD_LENGTH: 3
+#      JAVA_TIMEZONE: America/Toronto
+#    ports:
+#      - 127.0.0.1:3001:3000
+
+# 1WachtW1!

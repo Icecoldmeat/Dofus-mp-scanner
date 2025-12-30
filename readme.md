@@ -10,5 +10,9 @@
 
 
 
+Yes, formula is (3 * value * density * lvl / 200 + 1) / density, so for a lvl 100 item not focused on ap generation, you will get ((3 * 1 * 100 * 100) / 200 + 1) / 100= 151 / 100 = 1.51 runes with a 100% multiplier, where you will get ((3 * 1 * 100 * 200) / 200 + 1) / 100 = 3.01 ap runes for a lvl 200 item. 
+
+
+
 
 image made with paint.net

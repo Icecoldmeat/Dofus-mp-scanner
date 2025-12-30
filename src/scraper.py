@@ -93,7 +93,7 @@ class ScraperPriceCleaner:
         product_prices = []
         for price in concat_values:
             price_value = price['value']
-            clean_price = price_value.replace('o', '0').replace('O', '0').replace(',', '')
+            clean_price = price_value.replace('o', '0').replace('O', '0').replace(',', '').replace(' ','')
             is_number, number = ScraperUtility.find_number_with_comma(clean_price)
             if is_number:
                 product_prices.append(number)

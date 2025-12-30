@@ -44,11 +44,8 @@ class MarketScanner:
         file_path = f"{CACHE_PATH}/validate.png"
 
         time.sleep(0.3)
-        im = ImageGrab.grab(bbox=self.scanner_boxes.mp_validate_new_items_region)
-        if im:
-            im.save(file_path)
-        else:
-            raise Exception('could not grab image, unknown cause')
+
+        self.safe_grab_and_save(file_path)
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Saved Marketplace image")
 
         image_text = self.reader.readtext(file_path, detail=0)
@@ -71,6 +68,21 @@ class MarketScanner:
 
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - End, back to beginning")
         self.retrieve_marketplace_images()
+
+    def safe_grab_and_save(self, file_path, retries=3, delay=0.1):
+        for attempt in range(retries):
+            try:
+                im = ImageGrab.grab(bbox=self.scanner_boxes.mp_validate_new_items_region)
+                # Ensure image is valid
+                if im is None or im.size[0] == 0 or im.size[1] == 0:
+                    raise ValueError("Invalid image grabbed")
+                # Save to disk
+                im.save(file_path)
+                return True
+            except Exception as e:
+                print(f"[WARN] Grab attempt {attempt + 1} failed: {e}")
+                time.sleep(delay)
+        raise Exception("Could not grab image after multiple attempts")
 
     def locate_image(self, locations: list[Any]):
         print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start moving")

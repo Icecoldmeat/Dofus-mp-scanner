@@ -1,7 +1,10 @@
 import csv
+import os
+import shutil
 import glob
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from time import sleep
 from typing import Union, Any
 
 import easyocr
@@ -9,7 +12,7 @@ import re
 
 from sympy import false
 
-from definitions import ITEMS_PATH, CACHE_PATH, ROOT
+from definitions import UNPROCESSED_ITEMS_PATH, CACHE_PATH, ROOT
 from marketplace_boxes import MarketPlaceScannerBoxes
 from repository.mysql import DofusPriceModel, ExternalDofusPriceRepository
 
@@ -50,13 +53,22 @@ class ScraperUtility:
             return True, float(number_str)
         return False, None
 
+    @staticmethod
+    def folder_path_to_creation_date(file: str) -> datetime:
+        parts_creation_date = file.split('/')
+        date_str = parts_creation_date[-3]
+        time_str = parts_creation_date[-2]
+        creation_date = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
+        return creation_date
+
 
 class ScraperPriceCleaner:
 
     def __init__(self, scanner_boxes: MarketPlaceScannerBoxes):
         self.scanner_boxes = scanner_boxes
 
-    def clean_price(self, prices: Union[None, list], file: str) -> list[PricePartModel]:  #TODO THIS IS ONLY FOR RESOURCES
+    def clean_price(self, prices: Union[None, list], file: str) -> list[
+        PricePartModel]:  #TODO THIS IS ONLY FOR RESOURCES
         if prices is None:
             return []
 
@@ -94,7 +106,7 @@ class ScraperPriceCleaner:
         product_prices = []
         for price in concat_values:
             price_value = price['value']
-            clean_price = price_value.replace('o', '0').replace('O', '0').replace(',', '').replace(' ','')
+            clean_price = price_value.replace('o', '0').replace('O', '0').replace(',', '').replace(' ', '')
             is_number, number = ScraperUtility.find_number_with_comma(clean_price)
             if is_number:
                 product_prices.append(number)
@@ -173,9 +185,9 @@ class Scraper:
         self.scanner_boxes = scanner_boxes
         self.price_cleaner = ScraperPriceCleaner(scanner_boxes)
 
-    def scrape(self, row: list, file: str):
-        if len(row) == 0:
-            return
+    def scrape(self, row: list, file: str) -> Union[None, list[DofusPriceModel]]:
+        if len(row) <= 3:
+            return None
 
         length = len(row)
         name = None
@@ -198,13 +210,7 @@ class Scraper:
         item_prices = []
         file = file[file.find('cache'):].replace('\\', '/').replace('//', '/')
 
-        if file.count('/') != 4:
-            raise Exception(f'File has more folders than expected: {file}')
-
-        parts_creation_date = file.split('/')
-        date_str = parts_creation_date[2]
-        time_str = parts_creation_date[3]
-        creation_date = datetime.strptime(date_str + time_str, '%Y%m%d%H%M%S')
+        creation_date = ScraperUtility.folder_path_to_creation_date(file)
         i = 1
         for price_part_model in pack_price:
             price_model = self.map(creation_date, file, price_part_model.price_type, name, price_part_model.price, i)
@@ -213,11 +219,14 @@ class Scraper:
 
         return item_prices
 
-    def map(self, creation_date: datetime, file: str, price_type, name: str, price, auction_number: int) -> DofusPriceModel:
+    def map(self, creation_date: datetime, file: str, price_type, name: str, price,
+            auction_number: int) -> DofusPriceModel:
         price_model = DofusPriceModel()
         price_model.name = name.replace('WV', 'W')
 
-        price_type_cleaned = str(price_type).replace(',', '').replace('x', '').replace('X', '').replace('o', '0').replace('O', '0').strip()
+        price_type_cleaned = str(price_type).replace(',', '').replace('x', '').replace('X', '').replace('o',
+                                                                                                        '0').replace(
+            'O', '0').strip()
         if price_type_cleaned == '' or price_type_cleaned is None:
             price_type_cleaned = 1
         price_model.price_type = price_type_cleaned
@@ -253,21 +262,17 @@ class ScraperManager:
         self.scrape = scraper
         self.repo = ExternalDofusPriceRepository()
 
-    def get_sales(self, date: Union[None, datetime] = None, reimport: bool = False) -> list:
-        if date is None:
-            date = datetime.now()
-
-        date = date.strftime("%Y%m%d")
-        path = f"{ITEMS_PATH}/{date}/**/*.png"
-        if reimport:
-            path = f"{ITEMS_PATH}/**/*.png"
+    def get_sales(self) -> None:
+        path = f"{UNPROCESSED_ITEMS_PATH}/**/*.png"
         list_of_files = glob.glob(path, recursive=True)
         count = len(list_of_files)
 
+        sleep(2)  # make sure images are saved
         i = 0
         for file in list_of_files:
-            result = self.reader.readtext(file, detail=1, batch_size=5, blocklist='*#')
-            if result is None or len(result) == 0:
+            result = self.reader.readtext(file, detail=1, batch_size=30, blocklist='*#')
+            if result is None or len(result) <= 3:
+                self.move_file_to_processed(file)
                 continue
 
             converted_result = self.convert(result)
@@ -276,32 +281,29 @@ class ScraperManager:
             for scraped_result in scraped_results:
                 self.repo.insert(scraped_result)
             # self.write_to_file(scraped_result)
+            self.move_file_to_processed(file)
+
             i = i + 1
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Inserted {i} of {count} - {file}")
 
-    def get_sale(self, file: str):
+    def get_sale(self, file: str) -> Union[None, list[DofusPriceModel]]:
         path = ROOT + file
         result = self.reader.readtext(path, detail=1, batch_size=5, blocklist='*#')
+
         converted_result = self.convert(result)
         scraped_result = self.scrape.scrape(converted_result, path)
+        return scraped_result
 
-        print(scraped_result)
+    def move_file_to_processed(self, image_file_path: str):
+        if image_file_path is None:
+            raise Exception('image_file_path cannot be None')
 
-    #  def write_to_file(self, products: list):
-    #      path = CACHE_PATH
-    #      with open(f"{path}/products.csv", mode="a", newline="", encoding="utf-8") as file:
-    #          writer = csv.writer(file, delimiter=';')
-    #
-    #          # If file is empty, write header first
-    #          if file.tell() == 0:
-    #              writer.writerow(["name", "price", "price_type","image_file_path","creation_date"])
-    #
-    #          # Write rows
-    #          try:
-    #              for product in products:
-    #                  writer.writerow([product.name, product.price, product.price_type,product.file_name,product.creation_date])
-    #          except Exception as e:
-    #              print(e)
+        if 'unprocessed' not in image_file_path:
+            raise Exception('folder name unprocessed should be in path')
+
+        processed_path = image_file_path.replace('unprocessed', 'processed')
+        os.makedirs(os.path.dirname(processed_path), exist_ok=True)
+        shutil.move(image_file_path, processed_path)
 
     def convert(self, result: list) -> list:
         all_values = []

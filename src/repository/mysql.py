@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import Column, String, DateTime, Integer, func
+from sqlalchemy import Column, String, DateTime, Integer, func, select
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from connect import SqlAlchemyConnector
@@ -33,6 +33,20 @@ class ExternalDofusPriceRepository:
                 session.add(price_model)
                 session.commit()
 
+    def find_by_image_file_path(self, image_file_path, auction_number: int):
+        with Session(self.engine) as session:
+            stmt = select(DofusPriceModel).where(DofusPriceModel.image_file_path == image_file_path, DofusPriceModel.auction_number == auction_number)
+            item = session.execute(stmt)
+
+            if item:
+                return item
+
+            return DofusPriceModel()
+
     def find_all(self) -> pd.DataFrame:
         df = pd.read_sql('SELECT * FROM dofus_prices', con=self.engine)
+        return df
+
+    def find_last_id(self) -> pd.DataFrame:
+        df = pd.read_sql('SELECT id,image_file_path FROM dofus_prices order by id desc limit 1 ', con=self.engine)
         return df

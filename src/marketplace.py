@@ -9,7 +9,7 @@ import pygetwindow
 import random
 from humancursor import SystemCursor
 
-from definitions import ITEMS_PATH, CACHE_PATH, IMAGE_PATH
+from definitions import UNPROCESSED_ITEMS_PATH, CACHE_PATH, IMAGE_PATH
 from marketplace_boxes import MarketPlaceScannerBoxes
 from mouse_mover import NaturalMouseMover
 import pyscreenshot as ImageGrab
@@ -29,7 +29,7 @@ class MarketScanner:
 
         date = datetime.now().strftime("%Y%m%d")
         time = datetime.now().strftime("%H%M%S")
-        path = f"{ITEMS_PATH}/{date}/{time}"
+        path = f"{UNPROCESSED_ITEMS_PATH}/{date}/{time}"
         os.makedirs(path, exist_ok=True)
         self.file_output = path
 
@@ -152,11 +152,11 @@ class MarketScanner:
         y_randomized = random.randint(y - self.scanner_boxes.mp_item_box_height_from_middle, y + self.scanner_boxes.mp_item_box_height_from_middle)
         if last:
             print('hit the last one!')
-            y_randomized = random.randint(y -  self.scanner_boxes.mp_item_box_height_from_middle,y )
+            y_randomized = random.randint(y -  self.scanner_boxes.mp_item_box_height_from_middle,y - 3 )
 
         if first:
             print('hit the first one!')
-            y_randomized = random.randint(y ,
+            y_randomized = random.randint(y + 3 ,
                                           y +  self.scanner_boxes.mp_item_box_height_from_middle)
 
         return x_randomized, y_randomized

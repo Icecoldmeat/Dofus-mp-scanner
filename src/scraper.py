@@ -7,9 +7,12 @@ from datetime import datetime, timezone
 from time import sleep
 from typing import Union, Any
 
+import cv2
 import easyocr
 import re
 
+import numpy as np
+from matplotlib import pyplot as plt
 from sympy import false
 
 from definitions import UNPROCESSED_ITEMS_PATH, CACHE_PATH, ROOT
@@ -151,7 +154,7 @@ class ScraperPriceCleaner:
         return pack, packless_items
 
     def _group_prices_by_y(self, data: list[dict]) -> list[dict]:
-        tolerance = 4
+        tolerance = 10
 
         # Sort by y so nearby values are processed together
         data = sorted(data, key=lambda d: d["y"])
@@ -234,6 +237,7 @@ class Scraper:
         price_model.auction_number = auction_number
         price_model.image_file_path = file
         price_model.creation_date = creation_date
+        price_model.update_date = creation_date
         return price_model
 
     def clean_name(self, names: list) -> str:
@@ -270,7 +274,8 @@ class ScraperManager:
         sleep(2)  # make sure images are saved
         i = 0
         for file in list_of_files:
-            result = self.reader.readtext(file, detail=1, batch_size=30, blocklist='*#')
+            image = self.preprocess(file)
+            result = self.reader.readtext(image, detail=1, batch_size=50, blocklist='*#')
             if result is None or len(result) <= 3:
                 self.move_file_to_processed(file)
                 continue
@@ -286,13 +291,26 @@ class ScraperManager:
             i = i + 1
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Inserted {i} of {count} - {file}")
 
+
     def get_sale(self, file: str) -> Union[None, list[DofusPriceModel]]:
         path = ROOT + file
-        result = self.reader.readtext(path, detail=1, batch_size=5, blocklist='*#')
+        image = self.preprocess(path)
+        result = self.reader.readtext(image, detail=1, batch_size=5, blocklist='*#')
 
         converted_result = self.convert(result)
         scraped_result = self.scrape.scrape(converted_result, path)
         return scraped_result
+
+    def preprocess(self, file_path: str):
+        image = cv2.imread(file_path)
+        b, g, r = cv2.split(image)
+        r_boosted = cv2.multiply(r, 1.5)
+        r_boosted = np.clip(r_boosted, 0, 255).astype(np.uint8)
+
+        gray_red_emphasized = cv2.addWeighted(r_boosted, 0.6, b, 0.2, 0)
+        gray_red_emphasized = cv2.addWeighted(gray_red_emphasized, 1.0, g, 0.2, 0)
+
+        return gray_red_emphasized
 
     def move_file_to_processed(self, image_file_path: str):
         if image_file_path is None:

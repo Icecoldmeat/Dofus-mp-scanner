@@ -14,7 +14,7 @@ import easyocr
 from matplotlib import pyplot as plt
 
 
-path = '/cache/items/processed/20260101/123439/28.png'
+path = '/test/images/cache/20251227/130828/cheeken.png'
 path_root = f"{ROOT}{path}"
 
 # 1️⃣ Read the image

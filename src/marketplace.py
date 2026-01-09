@@ -43,9 +43,11 @@ class MarketScanner:
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start Retrieving")
         file_path = f"{CACHE_PATH}/validate.png"
 
-        time.sleep(0.3)
+        #time.sleep(0.3)
 
-        self.safe_grab_and_save(file_path)
+
+        im = ImageGrab.grab(bbox=self.scanner_boxes.mp_validate_new_items_region)
+        im.save(file_path)
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Saved Marketplace image")
 
         image_text = self.reader.readtext(file_path, detail=0)
@@ -69,20 +71,6 @@ class MarketScanner:
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - End, back to beginning")
         self.retrieve_marketplace_images()
 
-    def safe_grab_and_save(self, file_path, retries=3, delay=0.1):
-        for attempt in range(retries):
-            try:
-                im = ImageGrab.grab(bbox=self.scanner_boxes.mp_validate_new_items_region)
-                # Ensure image is valid
-                if im is None or im.size[0] == 0 or im.size[1] == 0:
-                    raise ValueError("Invalid image grabbed")
-                # Save to disk
-                im.save(file_path)
-                return True
-            except Exception as e:
-                print(f"[WARN] Grab attempt {attempt + 1} failed: {e}")
-                time.sleep(delay)
-        raise Exception("Could not grab image after multiple attempts")
 
     def locate_image(self, locations: list[Any]):
         print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Start moving")
@@ -100,13 +88,13 @@ class MarketScanner:
                 x, y = self._boxCalculator(location,False,True)
 
 
-            if random.randint(0, 100) < 2:
-                time.sleep(random.uniform(2, 10))
+       #     if random.randint(0, 100) < 2:
+       #         time.sleep(random.uniform(2, 10))
 
             print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - start actual movement")
             current_x, current_y = pyautogui.position()
             #self.mouse_mover.move_mouse_natural(current_x,current_y,x,y)
-            natural_mover = NaturalMouseMover(speed=2)
+            natural_mover = NaturalMouseMover(speed=3)
             natural_mover.move(current_x,current_y,x,y)
             print(f"-- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - moved to spot")
             #mouse.move(x, y, duration=amount_of_time)

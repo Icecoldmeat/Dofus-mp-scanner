@@ -14,13 +14,27 @@ import easyocr
 from matplotlib import pyplot as plt
 
 
-path = '/test/images/cache/20251227/130828/cheeken.png'
+path = '/test/images/cache/20251227/130828/mantax.png'
 path_root = f"{ROOT}{path}"
 
 # 1️⃣ Read the image
 image = cv2.imread(path_root)  # Replace with your image path
 print("Original image shape:", image.shape)  # (H, W, 3)
 plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+plt.title("Original Image")
+plt.show()
+
+reader = easyocr.Reader(['en'])
+results = reader.readtext(image)
+
+
+cropped = image[0:170,:]
+plt.imshow(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+plt.title("Original Image")
+plt.show()
+
+cropped = image[170:,:]
+plt.imshow(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
 plt.title("Original Image")
 plt.show()
 

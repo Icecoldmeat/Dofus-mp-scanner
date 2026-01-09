@@ -20,8 +20,8 @@ class SalesTest(unittest.TestCase):
 
             actual_sales = manager.get_sale(image)
 
-           # for actual_sale in actual_sales:
-           #     print(f"name='{actual_sale.name}', price={actual_sale.price}, auction_number={actual_sale.auction_number}, price_type='{actual_sale.price_type}'")
+            for actual_sale in actual_sales:
+                print(f"name='{actual_sale.name}', price={actual_sale.price}, auction_number={actual_sale.auction_number}, price_type='{actual_sale.price_type}'")
 
             expected_sales = all_expected_sales[file_name]
             # Subtest per image
@@ -37,7 +37,7 @@ class SalesTest(unittest.TestCase):
     def get_images_to_test(self) -> list:
         path = '/test/images/cache/20251227/130828/'
 
-        file_names = [
+        file_names = ['mantax.png',
                       'cheeken.png',
                       'belteen.png',
                       'castus_flower.png',
@@ -54,6 +54,17 @@ class SalesTest(unittest.TestCase):
     def get_sales(self) -> dict[list[DofusPriceModel]]:
 
         return {
+            'brakmar_shield.png': [
+            ],
+            'bulwark.png': [
+            ],
+            'mantax.png': [
+                DofusPriceModel(name='Mantax', price=5465453.0, auction_number=1, price_type='average'),
+                DofusPriceModel(name='Mantax', price=6100000.0, auction_number=2, price_type='1'),
+                DofusPriceModel(name='Mantax', price=6222222.0, auction_number=3, price_type='1'),
+                DofusPriceModel(name='Mantax', price=6300000.0, auction_number=4, price_type='1'),
+                DofusPriceModel(name='Mantax', price=6349999.0, auction_number=5, price_type='1'),
+            ],
             'cheeken.png': [
                 DofusPriceModel(name='Cheeken Cloaca', price=1978.0, auction_number=1, price_type='average'),
                 DofusPriceModel(name='Cheeken Cloaca', price=2392.0, auction_number=2, price_type='1'),

@@ -71,7 +71,7 @@ class ScraperPriceCleaner:
         self.scanner_boxes = scanner_boxes
 
     def clean_price(self, prices: Union[None, list], file: str) -> list[
-        PricePartModel]:  #TODO THIS IS ONLY FOR RESOURCES
+        PricePartModel]:
         if prices is None:
             return []
 
@@ -300,6 +300,21 @@ class ScraperManager:
         converted_result = self.convert(result)
         scraped_result = self.scrape.scrape(converted_result, path)
         return scraped_result
+
+    def preprocess2(self, file_path: str):
+        image = cv2.imread(file_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+
+        bw = cv2.adaptiveThreshold(
+            gray,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            31,
+            5
+        )
+        return bw
 
     def preprocess(self, file_path: str):
         image = cv2.imread(file_path)

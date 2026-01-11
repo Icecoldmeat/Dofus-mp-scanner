@@ -1,18 +1,12 @@
 import glob
 import random
-import time
-from datetime import datetime
 
 import cv2
-
-from definitions import UNPROCESSED_ITEMS_PATH, ROOT, PROCESSED_ITEMS_PATH
-from marketplace_boxes import average_text_box
-from repository.mysql import ExternalDofusPriceRepository
-from scraper import ScraperManager, Scraper
-import cv2
-import numpy as np
 import easyocr
+import numpy as np
 from matplotlib import pyplot as plt
+
+from definitions import ROOT, PROCESSED_ITEMS_PATH
 
 
 def get_random_images_to_test() -> list:
@@ -24,22 +18,7 @@ def get_random_images_to_test() -> list:
 def get_images_to_test() -> list:
     path = '/test/images/cache/20251227/130828/'
 
-    file_names = [ #TODO ADD NEW TO TEST
-                  'bone_band.png',
-                  'goul_shield.png',
-                  'ice_knight_map.png',
-                  'cheeken.png',
-                  'akakwa_pants.png',
-                  'bulwark.png',
-                  'captain_chafter_briefs.png',
-                  'mantax.png',
-                  'brakmar_shield.png',
-
-                  'belteen.png',
-                  'castus_flower.png',
-                  'fish_juice.png',
-
-                  'rhinteele_ring.png',
+    file_names = ['ra_fire_res.png'
                   ]
     file_path = []
     for file_name in file_names:
@@ -90,9 +69,11 @@ def draw_easyocr_results(image, results, top_padding=20):
         )
 
     return padded_img
+
+
 reader = easyocr.Reader(['en'], gpu=True)
 tests = get_images_to_test()
-random_paths  = get_random_images_to_test()
+random_paths = get_random_images_to_test()
 
 all_paths = tests + random_paths
 
@@ -100,7 +81,7 @@ all_paths = tests + random_paths
 def ocr_with_allowlist(img_to_ocr, arguments: dict):
     rgb = cv2.cvtColor(img_to_ocr, cv2.COLOR_BGR2RGB)
 
-    results = reader.readtext(rgb, **arguments )
+    results = reader.readtext(rgb, **arguments)
 
     annotated = draw_easyocr_results(img_to_ocr, results)
     return annotated
@@ -119,35 +100,37 @@ for path in all_paths:
     gray_red_emphasized = cv2.addWeighted(r_boosted, 0.6, b, 0.2, 0)
     gray_red_emphasized = cv2.addWeighted(gray_red_emphasized, 1.0, g, 0.2, 0)
 
-    #plt.imshow(cv2.cvtColor(gray_red_emphasized, cv2.COLOR_BGR2RGB))
-    #plt.title("Original Image")
-    #plt.show()
+    # plt.imshow(cv2.cvtColor(gray_red_emphasized, cv2.COLOR_BGR2RGB))
+    # plt.title("Original Image")
+    # plt.show()
 
-
+    roi_slice = (slice(40, 65), slice(95, None))
     # NAME
-    name = gray_red_emphasized[40:65,95:]
+    name = gray_red_emphasized[roi_slice]
 
     # AVG PRICE
-    avg = gray_red_emphasized[80:100,95:]
+    avg = gray_red_emphasized[80:100, 95:]
 
     # PACK
-    pack = gray_red_emphasized[170:,55:120]
+    pack = gray_red_emphasized[170:, 58:125]
 
     # PRICE
-    price = gray_red_emphasized[170:,170:300]
+    price = gray_red_emphasized[170:, 170:300]
 
-
-    images = [name, avg, pack,price, image ]  # your images
-    titles = ["name", "avg", "pack","price", "org"]
+    images = [name, avg, pack, price, image]  # your images
+    titles = ["name", "avg", "pack", "price", "org"]
 
     plt.figure(figsize=(12, 4))
 
     processed = [
-        ocr_with_allowlist(name, {'allowlist':'/ abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 123456789 ''', 'slope_ths': 0.4, 'width_ths': 1, 'height_ths': 1}),
-        ocr_with_allowlist(avg,{'allowlist':'AP average price 0123456789, K', 'slope_ths': 0.4, 'width_ths': 1}),
-        ocr_with_allowlist(pack,{'allowlist':'P pack x1 x10 x100 x1000', 'low_text': 0.1}),
-        ocr_with_allowlist(price,{'allowlist':'P price 0123456789, K', 'low_text': 0.2, 'ycenter_ths': 0.75, 'height_ths': 1}),
-        ocr_with_allowlist(image,{}),
+        ocr_with_allowlist(name, {'allowlist': '/ abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 123456789 ''',
+                                  'slope_ths': 0.4, 'width_ths': 1, 'height_ths': 1}),
+        ocr_with_allowlist(avg, {'allowlist': 'AP average price 0123456789, K', 'slope_ths': 0.4, 'width_ths': 1}),
+        ocr_with_allowlist(pack, {'allowlist': 'P pack x1 x10 x100 x1000', 'low_text': 0.1}),
+        ocr_with_allowlist(price, {'allowlist': 'P price 0123456789, K', 'slope_ths': 0.4, 'low_text': 0.2,
+                                   'ycenter_ths': 0.75,
+                                   'height_ths': 1}),
+        ocr_with_allowlist(image, {}),
     ]
     # processed for also results images only images
     for i, (img, title) in enumerate(zip(processed, titles), 1):

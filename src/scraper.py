@@ -1,21 +1,17 @@
-import csv
-import os
-import shutil
 import glob
+import os
+import re
+import shutil
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from time import sleep
 from typing import Union, Any
 
 import cv2
 import easyocr
-import re
-
 import numpy as np
-from matplotlib import pyplot as plt
-from sympy import false
 
-from definitions import UNPROCESSED_ITEMS_PATH, CACHE_PATH, ROOT
+from definitions import UNPROCESSED_ITEMS_PATH, ROOT
 from marketplace_boxes import MarketPlaceScannerBoxes
 from repository.mysql import DofusPriceModel, ExternalDofusPriceRepository
 
@@ -23,7 +19,16 @@ from repository.mysql import DofusPriceModel, ExternalDofusPriceRepository
 @dataclass
 class PricePartModel:
     price: int
-    price_type: str
+    price_type: str  # average or lot
+    quantity: int
+
+
+@dataclass
+class DirtyOffers:
+    name: Union[str, None]
+    average_price: Union[str, None]
+    pack: Union[list[dict], None]
+    price: Union[list[dict], None]
 
 
 class ScraperUtility:
@@ -179,91 +184,308 @@ class ScraperPriceCleaner:
         for group in groups:
             group.sort(key=lambda d: d["x"])
 
-        return groups
+        return groups  # not in use
 
 
-class Scraper:
+class SubjectScraper:
 
     def __init__(self, scanner_boxes: MarketPlaceScannerBoxes):
         self.scanner_boxes = scanner_boxes
-        self.price_cleaner = ScraperPriceCleaner(scanner_boxes)
+        self.reader = easyocr.Reader(['en'], gpu=True)
 
-    def scrape(self, row: list, file: str) -> Union[None, list[DofusPriceModel]]:
-        if len(row) <= 3:
+    def scrape(self, image: np.ndarray) -> Union[None, DirtyOffers]:
+        name = self._scrape_name(image)
+
+        if name is None:
             return None
 
-        length = len(row)
-        name = None
-        average_price = None
-        prices = None
-        for i, item in enumerate(row):
-            if 'Lvl' in item['value']:
-                name = row[0:i]
+        # TODO not for sale
 
-            if 'price:' in item['value']:
-                average_price = item
+        average_price = self._scrape_average_price(image)
+        pack = self._scrape_pack(image)
+        price = self._scrape_price(image)
 
-            if 'Pack' in item['value']:
-                prices = row[i:length]
+        return DirtyOffers(
+            name=name,
+            average_price=average_price,
+            pack=pack,
+            price=price,
+        )
 
-        name = self.clean_name(name)
-        average_price = self.clean_average_price(average_price)
-        pack_price = self.price_cleaner.clean_price(prices, file)
-        pack_price.insert(0, average_price)
-        item_prices = []
+    def _scrape_name(self, image: np.ndarray):
+        name_crop = image[self.scanner_boxes.mp_item_page_name_crop]
+        names = self._ocr_with_allowlist(name_crop, {
+            'allowlist': '/ abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 123456789 ''',
+            'batch_size': 50,
+            'slope_ths': 0.4,
+            'width_ths': 1,
+            'height_ths': 1})
+
+        if len(names) == 0:
+            return None
+
+        names = self._convert(names)
+        if len(names) == 1:
+            return names[0]['value']
+
+        sorted_data = sorted(names, key=lambda d: d['x'])
+
+        return " ".join(v["value"] for v in sorted_data)
+
+    def _scrape_average_price(self, image: np.ndarray):
+        avg_price_crop = image[self.scanner_boxes.mp_item_page_average_price_crop]
+        average_price = self._ocr_with_allowlist(avg_price_crop, {
+            'allowlist': 'AP average price 0123456789, K',
+            'batch_size': 50,
+            'slope_ths': 0.4,
+            'width_ths': 1})
+
+        if len(average_price) == 0:
+            return None
+
+        average_price = self._convert(average_price)
+        if len(average_price) == 1:
+            return average_price[0]['value']
+
+        sorted_data = sorted(average_price, key=lambda d: d['x'])
+
+        return " ".join(v["value"] for v in sorted_data)
+
+    def _scrape_pack(self, image: np.ndarray) -> Union[None, list]:
+        pack_crop = image[self.scanner_boxes.mp_item_page_pack_crop]
+        pack = self._ocr_with_allowlist(pack_crop, {
+            'allowlist': 'P pack x1 x10 x100 x1000',
+            'batch_size': 50,
+            'low_text': 0.1})
+
+        if len(pack) == 0:
+            return None
+
+        pack = self._convert(pack)
+
+        return pack
+
+    def _scrape_price(self, image: np.ndarray) -> Union[None, list]:
+        price_crop = image[self.scanner_boxes.mp_item_page_price_crop]
+        price = self._ocr_with_allowlist(price_crop, {
+            'allowlist': 'P price 0123456789, K',
+            'batch_size': 50,
+            'low_text': 0.2,
+            'ycenter_ths': 0.75,
+            'slope_ths': 0.4,
+            'height_ths': 1})
+
+        price = self._convert(price)
+
+        return price
+
+    def _ocr_with_allowlist(self, img_to_ocr: np.ndarray, arguments: dict):
+        rgb = cv2.cvtColor(img_to_ocr, cv2.COLOR_BGR2RGB)
+        results = self.reader.readtext(rgb, **arguments)
+
+        return results
+
+    def _convert(self, result: list) -> list:
+        all_values = []
+        for item in result:
+            values = {
+                'value': item[1],
+                'x': int(item[0][0][0]),
+                'y': int(item[0][0][1]),
+            }
+            all_values.append(values)
+
+        return all_values
+
+    def _concat_items(self, value_list: list[Any]):
+        concat_values = []
+        for value in value_list:
+            result = {
+                'value': ''.join(item['value'] for item in value_list),
+                'x': value[0]['x'],
+                'y': value[0]['y']
+            }
+
+            concat_values.append(result)
+
+        return concat_values
+
+
+class SubjectCleaner:
+
+    def clean(self, dirty_offers: DirtyOffers, file: str) -> list[DofusPriceModel]:
+
+        if dirty_offers is None or dirty_offers.name is None:
+            return []
+
         file = file[file.find('cache'):].replace('\\', '/').replace('//', '/')
-
         creation_date = ScraperUtility.folder_path_to_creation_date(file)
+
+        name = self._clean_name(dirty_offers.name)
+        average_price = self._clean_average_price(dirty_offers.average_price)
+        packs = self._clean_pack(dirty_offers.pack)
+        prices = self._clean_price(dirty_offers.price)
+        price_part_models = self._merge_price_pack(packs, prices)
+        price_part_models.insert(0, average_price)
+
         i = 1
-        for price_part_model in pack_price:
-            price_model = self.map(creation_date, file, price_part_model.price_type, name, price_part_model.price, i)
-            item_prices.append(price_model)
+        dofus_price_models = []
+        for price_part_model in price_part_models:
+            price_model = self._map(
+                file=file,
+                creation_date=creation_date,
+                name=name,
+                price_type=price_part_model.price_type,
+                price=price_part_model.price,
+                quantity=price_part_model.quantity,
+                auction_number=i,
+            )
+            dofus_price_models.append(price_model)
             i = i + 1
 
-        return item_prices
+        return dofus_price_models
 
-    def map(self, creation_date: datetime, file: str, price_type, name: str, price,
-            auction_number: int) -> DofusPriceModel:
+    def _clean_name(self, name: str) -> str:
+        return name.replace('WV', 'W')
+
+    def _clean_average_price(self, average_price: str) -> PricePartModel:
+        if average_price is None:
+            raise Exception('Average price should not be None')
+
+        average_price = average_price.replace(' ', '').replace(',', '').replace('.', '')
+
+        is_number, number = ScraperUtility.find_number_with_comma(average_price)
+
+        return PricePartModel(int(number), 'average', 1)
+
+    def _clean_pack(self, packs: Union[None, list[dict]]) -> list:
+        if packs is None or len(packs) == 0:
+            return []
+
+        if packs[0]['value'].count('i') > 1:
+            return []  # not for sale, but lots of letters are blacklisted resulting in lots of i's
+
+        grouped_packs = self._group_prices_by_y(packs)
+        for grouped_pack in grouped_packs:
+            if len(grouped_pack) > 1:
+                raise Exception('More than one pack in line, probably need to concat, gief example')
+
+        cleaned_packs = []
+        for pack_list in packs:
+            pack = pack_list['value']
+            pack = pack.replace(' ', '').replace(',', '').replace('.', '').replace('x', '')
+            is_number, number = ScraperUtility.find_number_with_comma(pack)
+
+            if is_number:
+                cleaned_packs.append(int(number))
+
+        return cleaned_packs
+
+    def _clean_price(self, prices: Union[None, list[dict]]) -> list:
+        if len(prices) == 0 or prices is None:
+            return []
+
+        if prices[0]['value'].count('i') > 1:
+            return []  # not for sale, but lots of letters are blacklisted resulting in lots of i's
+
+        grouped_prices = self._group_prices_by_y(prices)
+        for grouped_price in grouped_prices:
+            if len(grouped_price) > 1:
+                raise Exception('More than one price in line, probably need to concat, gief example')
+
+        cleaned_prices = []
+        for price_list in prices:
+            price = price_list['value']
+            price = (price
+                     .replace('o', '0')
+                     .replace('O', '0')
+                     .replace(' ', '')
+                     .replace('.', '')
+                     .replace('x', '')
+                     .replace('K', '')
+                     .replace('k', ''))
+
+            if ',' in price[-3:]:
+                raise Exception(f'price should not contain comma: {price}')
+
+            price = price.replace(',', '')
+            is_number, number = ScraperUtility.find_number_with_comma(price)
+
+            if is_number:
+                cleaned_prices.append(int(number))
+
+        return cleaned_prices
+
+    def _group_prices_by_y(self, data: list[dict]) -> list[dict]:
+        tolerance = 10
+
+        # Sort by y so nearby values are processed together
+        data = sorted(data, key=lambda d: d["y"])
+
+        groups = []
+
+        for item in data:
+            if item['value'] in ['Pack', 'Price', 'BUY']:
+                continue
+
+            placed = False
+            for group in groups:
+                # compare with the first y-value in the group
+                if abs(item["y"] - group[0]["y"]) <= tolerance:
+                    group.append(item)
+                    placed = True
+                    break
+
+            if not placed:
+                groups.append([item])
+
+        for group in groups:
+            group.sort(key=lambda d: d["x"])
+
+        return groups
+
+    def _merge_price_pack(self, pack: list[Any], product_prices: list[Any]) -> list[PricePartModel]:
+        if len(pack) != len(product_prices):
+            packs = [1, 10, 100, 1000]
+            if pack.count(1) > 1 and pack.count(10) == 0 and pack.count(100) == 0 and pack.count(1000) == 0:
+                packs = [1, 1, 1, 1]
+
+            pack = packs[:len(product_prices)]
+
+            if len(product_prices) > 4:
+                raise Exception('product_prices cant be this high')
+
+        price_part_models = [PricePartModel(a, 'lot', b) for a, b in zip(product_prices, pack)]
+
+        return price_part_models
+
+    def _map(self,
+             file: str,
+             creation_date: datetime,
+             price_type,
+             name: str,
+             price: int,
+             auction_number: int,
+             quantity: int
+             ) -> DofusPriceModel:
         price_model = DofusPriceModel()
-        price_model.name = name.replace('WV', 'W')
-
-        price_type_cleaned = str(price_type).replace(',', '').replace('x', '').replace('X', '').replace('o',
-                                                                                                        '0').replace(
-            'O', '0').strip()
-        if price_type_cleaned == '' or price_type_cleaned is None:
-            price_type_cleaned = 1
-        price_model.price_type = price_type_cleaned
+        price_model.name = name
+        price_model.price_type = price_type
         price_model.price = price
+        price_model.quantity = quantity
         price_model.auction_number = auction_number
         price_model.image_file_path = file
         price_model.creation_date = creation_date
         price_model.update_date = creation_date
         return price_model
 
-    def clean_name(self, names: list) -> str:
-        if len(names) == 1:
-            return names[0]['value']
-
-        filtered_names = []
-        for name in names:
-            # The image all have the same dimensions item name starts at 44
-            if int(name['y']) < 50:
-                filtered_names.append(name)
-        sorted_data = sorted(filtered_names, key=lambda d: d['x'])
-
-        return " ".join(v["value"] for v in sorted_data)
-
-    def clean_average_price(self, average_price: dict) -> PricePartModel:
-        is_number, number = ScraperUtility.find_number_with_comma(average_price['value'])
-
-        return PricePartModel(number, 'average')
-
 
 class ScraperManager:
 
-    def __init__(self, scraper: Scraper) -> None:
+    def __init__(self, scraper: SubjectScraper) -> None:
         self.reader = easyocr.Reader(['en'], gpu=True)
         self.scrape = scraper
+        self.cleaner = SubjectCleaner()
         self.repo = ExternalDofusPriceRepository()
 
     def get_sales(self) -> None:
@@ -274,47 +496,25 @@ class ScraperManager:
         sleep(2)  # make sure images are saved
         i = 0
         for file in list_of_files:
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Processing {i} of {count} - {file}")
             image = self.preprocess(file)
-            result = self.reader.readtext(image, detail=1, batch_size=50, blocklist='*#')
-            if result is None or len(result) <= 3:
-                self.move_file_to_processed(file)
-                continue
-
-            converted_result = self.convert(result)
-            scraped_results = self.scrape.scrape(converted_result, file)
+            scraped_results = self.scrape.scrape(image)
+            scraped_results = self.cleaner.clean(scraped_results, file)
 
             for scraped_result in scraped_results:
                 self.repo.insert(scraped_result)
-            # self.write_to_file(scraped_result)
             self.move_file_to_processed(file)
 
-            i = i + 1
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Inserted {i} of {count} - {file}")
-
+            i = i + 1
 
     def get_sale(self, file: str) -> Union[None, list[DofusPriceModel]]:
         path = ROOT + file
         image = self.preprocess(path)
-        result = self.reader.readtext(image, detail=1, batch_size=5, blocklist='*#')
 
-        converted_result = self.convert(result)
-        scraped_result = self.scrape.scrape(converted_result, path)
+        scraped_results = self.scrape.scrape(image)
+        scraped_result = self.cleaner.clean(scraped_results, file)
         return scraped_result
-
-    def preprocess2(self, file_path: str):
-        image = cv2.imread(file_path)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
-
-        bw = cv2.adaptiveThreshold(
-            gray,
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            31,
-            5
-        )
-        return bw
 
     def preprocess(self, file_path: str):
         image = cv2.imread(file_path)

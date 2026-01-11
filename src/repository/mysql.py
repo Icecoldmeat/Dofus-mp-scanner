@@ -1,26 +1,27 @@
 from datetime import datetime
 
 import pandas as pd
-from sqlalchemy import Column, String, DateTime, Integer, func, select, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, Integer, select, UniqueConstraint
 from sqlalchemy.dialects.mysql import insert
-
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from connect import SqlAlchemyConnector
 
 
 class Base(DeclarativeBase):
-       pass
+    pass
+
 
 class DofusPriceModel(Base):
     __tablename__ = "dofus_prices"
 
     id = Column(Integer, primary_key=True)
-    name= Column(String(255), nullable=False)
-    price_type= Column(String(255), nullable=True)
-    price= Column(Integer, nullable=True)
+    name = Column(String(255), nullable=False)
+    price_type = Column(String(255), nullable=True)
+    price = Column(Integer, nullable=True)
+    quantity = Column(Integer, nullable=True)
     auction_number = Column(Integer, nullable=True)
-    image_file_path= Column(String(255), nullable=True)
+    image_file_path = Column(String(255), nullable=True)
     creation_date = Column(DateTime, nullable=False)
     update_date = Column(DateTime, nullable=False)
 
@@ -40,7 +41,8 @@ class ExternalDofusPriceRepository:
 
     def insert(self, price_model: DofusPriceModel):
         with Session(self.engine) as session:
-            q = session.query(DofusPriceModel.id).filter_by(image_file_path=price_model.image_file_path, auction_number=price_model.auction_number)
+            q = session.query(DofusPriceModel.id).filter_by(image_file_path=price_model.image_file_path,
+                                                            auction_number=price_model.auction_number)
             if not session.query(q.exists()).scalar():
                 session.add(price_model)
                 session.commit()
@@ -59,25 +61,25 @@ class ExternalDofusPriceRepository:
 
         stmt
 
-    #    stmt = stmt.on_duplicate_key_update(name=price_model.name
-    #        index_elements=["image_file_path", "auction_number"],
-    #        set_={
-    #            "name": price_model.name,
-    #            "price_type": price_model.price_type,
-    #            "price": price_model.price,
-    #            "auction_number": price_model.auction_number,
-    #            "update_date": datetime.now(),
-    #        }
-    #    )
+        #    stmt = stmt.on_duplicate_key_update(name=price_model.name
+        #        index_elements=["image_file_path", "auction_number"],
+        #        set_={
+        #            "name": price_model.name,
+        #            "price_type": price_model.price_type,
+        #            "price": price_model.price,
+        #            "auction_number": price_model.auction_number,
+        #            "update_date": datetime.now(),
+        #        }
+        #    )
 
         with Session(self.engine) as session:
             session.execute(stmt)
             session.commit()
 
-
     def find_by_image_file_path(self, image_file_path, auction_number: int):
         with Session(self.engine) as session:
-            stmt = select(DofusPriceModel).where(DofusPriceModel.image_file_path == image_file_path, DofusPriceModel.auction_number == auction_number)
+            stmt = select(DofusPriceModel).where(DofusPriceModel.image_file_path == image_file_path,
+                                                 DofusPriceModel.auction_number == auction_number)
             item = session.execute(stmt)
 
             if item:
